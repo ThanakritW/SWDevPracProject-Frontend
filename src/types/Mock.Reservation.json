@@ -1,0 +1,18 @@
+{
+    "_id": "680b33acaec20b6d51b024f3",
+    "resvDate": "2021-10-15T17:00:00.000Z",
+    "user": "680912d992a9008e4bea2fb4",
+    "shop": {
+        "name": "Schimmel Inc",
+        "address": "Greg Lake",
+        "district": "Ayla Knolls",
+        "province": "DeSoto",
+        "postalcode": "11000",
+        "tel": "316-685-5673",
+        "openTime": "10:00",
+        "closeTime": "21:00",
+        "shopOwner": "680912c792a9008e4bea2fb2",
+        "id": "680a8aa6276afe39deefea48"
+    },
+    "createdAt": "2025-04-25T07:03:08.151Z"
+}
