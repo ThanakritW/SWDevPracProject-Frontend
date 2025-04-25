@@ -7,7 +7,7 @@ type Shop = {
   postalcode: string;
   tel: string;
   openTime: string;
-  closingTime: string;
+  closeTime: string;
   shopOwner: string;
 };
 

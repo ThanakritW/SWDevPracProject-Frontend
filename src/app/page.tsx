@@ -1,18 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import MOCK from "@/types/Mock.Reservation.json";
+import axiosInstance, { setAuthToken } from "@/lib/axios";
+import Reservation from "@/types/Reservation";
 
 // Modal Component
 const ChangeDateModal = ({
   isOpen,
   onClose,
   onSave,
-  initialDateTime,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSave: (newDate: string) => void;
-  initialDateTime: string;
 }) => {
   const toDatetimeLocal = (date: Date): string => {
     const offsetDate = new Date(
@@ -21,9 +21,7 @@ const ChangeDateModal = ({
     return offsetDate.toISOString().slice(0, 16); // 'YYYY-MM-DDTHH:MM'
   };
 
-  const [selectedDateTime, setSelectedDateTime] = useState(() =>
-    toDatetimeLocal(new Date(initialDateTime)).slice(0, 16)
-  );
+  const [selectedDateTime, setSelectedDateTime] = useState<string>("");
 
   if (!isOpen) return null;
 
@@ -35,7 +33,9 @@ const ChangeDateModal = ({
           type="datetime-local"
           className="w-full border p-2 rounded-md"
           value={selectedDateTime}
-          onChange={(e) => setSelectedDateTime(e.target.value)}
+          onChange={(e) => {
+            setSelectedDateTime(e.target.value);
+          }}
         />
         <div className="flex justify-end gap-2 mt-4">
           <button
@@ -63,27 +63,90 @@ export default function Home() {
   const [name, setName] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [password, setPassword] = useState<string | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [resvDate, setResvDate] = useState<string>(MOCK.resvDate);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [resvDate, setResvDate] = useState<Date | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [data, setData] = useState<Reservation[]>([]);
+  const [currrentId, setCurrentId] = useState<string | null>(null);
 
-  function LocalDate({ dateString }: { dateString: string }) {
+  function LocalDate({ dateString }: { dateString: Date | null }) {
     const [local, setLocal] = useState("");
+    if (!dateString) return;
 
     useEffect(() => {
-      const localDate = new Date(dateString).toLocaleString();
+      const localDate = new Date(dateString).toLocaleString("th-TH", {
+        timeZone: "Asia/Bangkok",
+      });
       setLocal(localDate);
     }, [dateString]);
 
     return <span>{local}</span>;
   }
 
+  const getData = async () => {
+    if (isLoggedIn) {
+      try {
+        const response = await axiosInstance.get("/reservations");
+        console.log(response.data);
+        setData(response.data.data);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
       return;
     }
-    // Handle login logic
+    try {
+      const response = await axiosInstance.post("/auth/shop-owner/login", {
+        email,
+        password,
+      });
+      setAuthToken(response.data.token);
+      console.log(response.data.token);
+      const user = await axiosInstance.get("/auth/me");
+      console.log(user.data.data.name);
+      setName(user.data.data.name);
+      setIsLoggedIn(true);
+    } catch (error) {
+      console.error(error);
+    }
   };
+
+  const handleUpdateReservation = async (
+    id: string | null,
+    newDate: string
+  ) => {
+    if (!id || !newDate) {
+      return;
+    }
+    try {
+      await axiosInstance.put(`/reservations/${id}`, {
+        resvDate: newDate,
+      });
+      await getData();
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleDelete = async (id: string | null) => {
+    if (!id) {
+      return;
+    }
+    try {
+      await axiosInstance.delete(`/reservations/${id}`);
+      await getData();
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    getData();
+  }, [isLoggedIn]);
 
   return (
     <div className="relative flex flex-col items-center min-h-screen">
@@ -118,45 +181,57 @@ export default function Home() {
       <main className="flex flex-col p-3 w-full">
         <h1 className="text-4xl font-bold">
           {isLoggedIn
-            ? `Hello, ${email}!! Welcome to massage reservation system.`
+            ? `Hello, ${name}!! Welcome to massage reservation system.`
             : "Please log in first."}
         </h1>
 
         {isLoggedIn && (
           <div className="flex flex-col gap-3 mt-5">
             <p className="text-xl">Here are your customers' reservations</p>
-            <div className="flex flex-col w-full bg-cyan-50 rounded-xl border-2 border-zinc-200 p-3">
-              <h4 className="text-xl font-bold">
-                {MOCK.shop.name} - <LocalDate dateString={resvDate} />
-              </h4>
-              <p className="text-lg">user: {MOCK.user}</p>
-              <p className="text-lg">
-                Service Time: {MOCK.shop.openTime} - {MOCK.shop.closeTime}
-              </p>
-              <p className="text-lg">Shop Tel: {MOCK.shop.tel}</p>
-              <p className="text-lg">
-                Location: {MOCK.shop.address}, {MOCK.shop.district},{" "}
-                {MOCK.shop.province}, {MOCK.shop.postalcode}
-              </p>
-              <p className="text-lg">
-                Created At: <LocalDate dateString={MOCK.createdAt} />
-              </p>
-              <div className="flex gap-2 mt-3">
-                <button
-                  type="button"
-                  className="rounded-lg hover:cursor-pointer w-20 bg-green-500 px-2 py-1 font-semibold text-white hover:brightness-95"
-                  onClick={() => setModalOpen(true)}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg hover:cursor-pointer w-20 bg-red-500 px-2 py-1 font-semibold text-white hover:brightness-95"
-                >
-                  Delete
-                </button>
+            {data.map((reservation: Reservation) => (
+              <div
+                key={reservation._id}
+                className="flex flex-col w-full bg-cyan-50 rounded-xl border-2 border-zinc-200 p-3"
+              >
+                <h4 className="text-xl font-bold">
+                  {reservation.shop.name} -{" "}
+                  <LocalDate dateString={reservation.resvDate} />
+                </h4>
+                <p className="text-lg">user: {reservation.user}</p>
+                <p className="text-lg">
+                  Service Time: {reservation.shop.openTime} -{" "}
+                  {reservation.shop.closeTime}
+                </p>
+                <p className="text-lg">Shop Tel: {reservation.shop.tel}</p>
+                <p className="text-lg">
+                  Location: {reservation.shop.address},{" "}
+                  {reservation.shop.district}, {reservation.shop.province},{" "}
+                  {reservation.shop.postalcode}
+                </p>
+                <p className="text-lg">
+                  Created At: <LocalDate dateString={reservation.createdAt} />
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    type="button"
+                    className="rounded-lg hover:cursor-pointer w-20 bg-green-500 px-2 py-1 font-semibold text-white hover:brightness-95"
+                    onClick={() => {
+                      setModalOpen(true);
+                      setCurrentId(reservation._id);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(reservation._id)}
+                    className="rounded-lg hover:cursor-pointer w-20 bg-red-500 px-2 py-1 font-semibold text-white hover:brightness-95"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         )}
       </main>
@@ -164,8 +239,7 @@ export default function Home() {
       <ChangeDateModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSave={(newDate) => setResvDate(newDate)}
-        initialDateTime={resvDate}
+        onSave={(newDate) => handleUpdateReservation(currrentId, newDate)}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 import Shop from "./Shop";
 
 type Reservation = {
-  _id: number;
+  _id: string;
   resvDate: Date;
   user: string;
   shop: Shop;
